@@ -130,7 +130,7 @@ def save_to_archive(user_email, expert_name, chat_history):
     archive_collection.insert_one({"user_email": user_email,
                                    "expert_name": expert_name,
                                    "messages": chat_history,
-                                  "session_id": st.session_state.session_id})
+                                   "session_id": st.session_state.session_id})
 @st.experimental_fragment
 def render_chat(expert_name):
     user_email = st.session_state.email
