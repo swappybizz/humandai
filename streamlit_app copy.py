@@ -55,8 +55,7 @@ client = MongoClient(MONGO_URI)
 db = client['ExpertAI']
 client_collection = db['expertai_client']
 expert_collection = db['expertai_expert']
-chat_collection = db['expertai_chat']  # Collection for chat history
-chat_archiver = db['expertai_chat_archive']  # Collection for chat history
+
 # Create text index on 'Expert description' and 'Expert name' if not exists
 expert_collection.create_index([("Expert name", TEXT), ("Expert description", TEXT)])
 
@@ -108,44 +107,17 @@ def update_hired_status(user_email, expert_name, hired):
     else:
         client_collection.insert_one({"email": user_email, "selected_experts": [expert_name] if hired else []})
 
-def get_chat_history(user_email, expert_name):
-    chat_history = chat_collection.find_one({"user_email": user_email, "expert_name": expert_name})
-    if chat_history and "messages" in chat_history:
-        return chat_history["messages"]
-    return []
 
-def save_chat_message(user_email, expert_name, role, message):
-    chat_history = chat_collection.find_one({"user_email": user_email, "expert_name": expert_name})
-    if not chat_history:
-        chat_history = {"user_email": user_email, "expert_name": expert_name, "messages": []}
-    chat_history["messages"].append({"role": role, "message": message})
-    chat_collection.update_one({"user_email": user_email, "expert_name": expert_name}, {"$set": chat_history}, upsert=True)
-
-def save_to_archive(user_email, expert_name, chat_history):
-    archive_collection = db['expertai_chat_archive']
-    archive_collection.insert_one({"user_email": user_email,
-                                   "expert_name": expert_name,
-                                   "messages": chat_history,
-                                  "session_id": st.session_state.session_id})
-    
 
 @st.experimental_fragment
 def render_chat(expert_name):
-    user_email = st.session_state.email
-    chat_history = get_chat_history(user_email, expert_name)
-    if st.button("➕ knowlege & new chat", key=f"{expert_name}_new_chat_",use_container_width=True):
-        st.session_state.pop(f"{expert_name}_chat_input", None)
-        save_to_archive(user_email, expert_name, chat_history)
-        chat_collection.delete_one({"user_email": st.session_state.email, "expert_name": expert_name})
-        st.rerun()
-    for msg in chat_history:
-        with st.chat_message(msg["role"]):
-            st.write(msg["message"])
-    if prompt := st.chat_input("What is up?", key=f"{expert_name}_chat_input"):
-        response = "This is a simulated response."  # Replace with actual AI response generation
-        save_chat_message(user_email, expert_name, "user", prompt)
-        save_chat_message(user_email, expert_name, "ai", response)
-        st.rerun()
+    # replace with actual chat history for the expert and the user
+    for i in range(3):
+        choice = random.choice(["ai","user"])
+        with st.chat_message(choice):
+            st.write(f"Hello {choice} {i}!")
+    if prompt := st.chat_input("What is up?"):
+        pass
 
 # Add a search bar
 with st.container():
@@ -159,27 +131,29 @@ with st.container():
             for idx, expert in enumerate(experts_found):
                 with columns[idx % num_columns]:
                     with st.container(border=True):
-                        col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+                        col1, col2, col3, col4 = st.columns([1, 1, 1,1])
                         with col1:
                             st.write(f"##### {expert['Expert name']}")
                         with col2:
                             st.write(f"**Subs:** {expert['subsribers']}")
                         with col3:
-                            st.write(f"{expert['rating']}")
+                            st.write(f"{expert['rating']}")    
+                        
                         with col4:
                             hired = is_hired(st.session_state.email, expert['Expert name'])
+                            # 🖤 if not hired and red heart when hired
                             heart = "❤️" if hired else "🖤"
                             checkbox = st.checkbox(f"{heart}", value=hired, key=f"{expert['Expert name']}_{idx}")
                             if checkbox != hired:
                                 update_hired_status(st.session_state.email, expert['Expert name'], checkbox)
-
-                        st.write(f"{expert['Expert description']}")
-                        if st.button("New Chat", key=f"{expert['Expert name']}_new_chat",use_container_width=True):
-                                # 'delete from session and db'
-                                st.session_state.pop(f"{expert['Expert name']}_chat_input", None)
-                                chat_collection.delete_one({"user_email": st.session_state.email, "expert_name": expert['Expert name']})
                                 
+                        st.write(f" {expert['Expert description']}")
+                        # st.divider()
                         with st.expander("Chat 👩‍⚖️ | 🤖"):
                             render_chat(expert['Expert name'])
+                            
+
+                            
         else:
             st.write("No experts found matching the query.")
+
