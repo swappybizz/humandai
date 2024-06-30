@@ -10,6 +10,10 @@ st.set_page_config(page_title="ExpertAI", page_icon=":rocket:", layout="wide")
 if 'session_id' not in st.session_state:
     st.session_state.session_id = f"ST_ASSTT_{str(uuid.uuid4())}"
 
+if "selected_detail_expert" not in st.session_state:
+    st.session_state.selected_detail_expert = None
+
+
 # Dummy expert data
 experts = [
     {
@@ -127,8 +131,6 @@ def save_to_archive(user_email, expert_name, chat_history):
                                    "expert_name": expert_name,
                                    "messages": chat_history,
                                   "session_id": st.session_state.session_id})
-    
-
 @st.experimental_fragment
 def render_chat(expert_name):
     user_email = st.session_state.email
@@ -141,45 +143,52 @@ def render_chat(expert_name):
     for msg in chat_history:
         with st.chat_message(msg["role"]):
             st.write(msg["message"])
-    if prompt := st.chat_input("What is up?", key=f"{expert_name}_chat_input"):
+    if prompt := st.chat_input(f"{expert_name} & Bot are here to help you, lets begin", key=f"{expert_name}_chat_input"):
         response = "This is a simulated response."  # Replace with actual AI response generation
         save_chat_message(user_email, expert_name, "user", prompt)
         save_chat_message(user_email, expert_name, "ai", response)
         st.rerun()
 
-# Add a search bar
-with st.container():
-    query = st.text_input("Look up Your AI-Human Expert Duo", "Type Here")
-    if query:
-        experts_found = search_experts(query)
-        if experts_found:
-            st.write(f"Found {len(experts_found)} expert(s):")
-            num_columns = 3
-            columns = st.columns(num_columns)
-            for idx, expert in enumerate(experts_found):
-                with columns[idx % num_columns]:
-                    with st.container(border=True):
-                        col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
-                        with col1:
-                            st.write(f"##### {expert['Expert name']}")
-                        with col2:
-                            st.write(f"**Subs:** {expert['subsribers']}")
-                        with col3:
-                            st.write(f"{expert['rating']}")
-                        with col4:
-                            hired = is_hired(st.session_state.email, expert['Expert name'])
-                            heart = "❤️" if hired else "🖤"
-                            checkbox = st.checkbox(f"{heart}", value=hired, key=f"{expert['Expert name']}_{idx}")
-                            if checkbox != hired:
-                                update_hired_status(st.session_state.email, expert['Expert name'], checkbox)
 
-                        st.write(f"{expert['Expert description']}")
-                        if st.button("New Chat", key=f"{expert['Expert name']}_new_chat",use_container_width=True):
-                                # 'delete from session and db'
-                                st.session_state.pop(f"{expert['Expert name']}_chat_input", None)
-                                chat_collection.delete_one({"user_email": st.session_state.email, "expert_name": expert['Expert name']})
-                                
-                        with st.expander("Chat 👩‍⚖️ | 🤖"):
-                            render_chat(expert['Expert name'])
-        else:
-            st.write("No experts found matching the query.")
+tab1, tab2, tab3 = st.tabs(["Experts", "Knowledge Base", "Detailed Chat"])
+
+
+# Add a search bar
+
+with tab1:
+    with st.container():
+        query = st.text_input("Look up Your AI-Human Expert Duo", placeholder="Type Here")
+        if query:
+            experts_found = search_experts(query)
+            if experts_found:
+                st.write(f"Found {len(experts_found)} expert(s):")
+                num_columns = 3
+                columns = st.columns(num_columns)
+                for idx, expert in enumerate(experts_found):
+                    with columns[idx % num_columns]:
+                        with st.container(border=True):
+                            col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+                            with col1:
+                                online_status = random.choice(["🟢", "⚫"])
+                                st.write(f"##### {expert['Expert name']}{online_status}")
+                            with col2:
+                                st.write(f"**Subs:** {expert['subsribers']}")
+                            with col3:
+                                st.write(f"{expert['rating']}")
+                            with col4:
+                                hired = is_hired(st.session_state.email, expert['Expert name'])
+                                heart = "❤️" if hired else "🖤"
+                                checkbox = st.checkbox(f"{heart}", value=hired, key=f"{expert['Expert name']}_{idx}")
+                                if checkbox != hired:
+                                    update_hired_status(st.session_state.email, expert['Expert name'], checkbox)
+
+                            st.write(f"{expert['Expert description']}")
+                            if st.button("New Chat", key=f"{expert['Expert name']}_new_chat",use_container_width=True):
+                                    # 'delete from session and db'
+                                    st.session_state.pop(f"{expert['Expert name']}_chat_input", None)
+                                    chat_collection.delete_one({"user_email": st.session_state.email, "expert_name": expert['Expert name']})
+                                    
+                            with st.expander(f"Chat {expert['Expert name']} | 🤖"):
+                                render_chat(expert['Expert name'])
+            else:
+                st.write("No experts found matching the query.")
